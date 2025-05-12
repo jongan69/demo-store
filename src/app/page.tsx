@@ -1,103 +1,161 @@
+"use client";
+import React, { useState } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
+import type QRCodeType from "react-qr-code";
+import { useCartStore } from "./cartStore";
+
+// Dynamically import react-qr-code to avoid SSR issues
+const QRCode = dynamic(() => import("react-qr-code"), { ssr: false }) as typeof QRCodeType;
+
+// Hardcoded product data
+const PRODUCTS = [
+  {
+    id: 1,
+    name: "T-Shirt",
+    priceUsd: 25.0,
+    image: "/file.svg",
+  },
+  {
+    id: 2,
+    name: "Mug",
+    priceUsd: 15.0,
+    image: "/window.svg",
+  },
+  {
+    id: 3,
+    name: "Sticker Pack",
+    priceUsd: 5.0,
+    image: "/globe.svg",
+  },
+];
+
+// Fixed BTC address for demo
+const BITCOIN_ADDRESS = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh";
+// Hardcoded BTC/USD rate for demo
+const BTC_USD_RATE = 60000; // 1 BTC = $60,000
+
+function usdToBtc(usd: number) {
+  return (usd / BTC_USD_RATE).toFixed(8);
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [showCheckout, setShowCheckout] = useState(false);
+  const cart = useCartStore((state) => state.cart);
+  const addToCart = useCartStore((state) => state.addToCart);
+  const removeFromCart = useCartStore((state) => state.removeFromCart);
+  const clearCart = useCartStore((state) => state.clearCart);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const cartItems = cart.map((item) => {
+    const product = PRODUCTS.find((p) => p.id === item.id)!;
+    return { ...product, qty: item.qty };
+  });
+
+  const totalUsd = cartItems.reduce(
+    (sum, item) => sum + item.priceUsd * item.qty,
+    0
+  );
+  const totalBtc = usdToBtc(totalUsd);
+
+  const bitcoinUri = `bitcoin:${BITCOIN_ADDRESS}?amount=${totalBtc}`;
+
+  return (
+    <div className="min-h-screen p-8 sm:p-20 font-[family-name:var(--font-geist-sans)] flex flex-col items-center">
+      <h1 className="text-3xl font-bold mb-8">Demo Store</h1>
+      {!showCheckout ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-12">
+            {PRODUCTS.map((product) => (
+              <div
+                key={product.id}
+                className="border rounded-lg p-6 flex flex-col items-center shadow-md bg-white dark:bg-black"
+              >
+                <Image
+                  src={product.image}
+                  alt={product.name}
+                  width={80}
+                  height={80}
+                  className="mb-4"
+                />
+                <div className="font-semibold text-lg mb-2">{product.name}</div>
+                <div className="mb-4">${product.priceUsd.toFixed(2)}</div>
+                <button
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  onClick={() => addToCart(product.id)}
+                >
+                  Add to Cart
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="w-full max-w-md border rounded-lg p-6 bg-white dark:bg-black shadow-md">
+            <h2 className="text-xl font-bold mb-4">Cart</h2>
+            {cartItems.length === 0 ? (
+              <div className="text-gray-500">Your cart is empty.</div>
+            ) : (
+              <ul className="mb-4">
+                {cartItems.map((item) => (
+                  <li key={item.id} className="flex justify-between items-center mb-2">
+                    <span>
+                      {item.name} x {item.qty}
+                    </span>
+                    <span>
+                      ${(item.priceUsd * item.qty).toFixed(2)}
+                      <button
+                        className="ml-4 text-red-500 hover:underline"
+                        onClick={() => removeFromCart(item.id)}
+                      >
+                        Remove
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex justify-between font-semibold mb-4">
+              <span>Total:</span>
+              <span>${totalUsd.toFixed(2)} USD</span>
+            </div>
+            <button
+              className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
+              onClick={() => setShowCheckout(true)}
+              disabled={cartItems.length === 0}
+            >
+              Checkout
+            </button>
+            {cartItems.length > 0 && (
+              <button
+                className="w-full mt-2 bg-gray-200 text-black py-2 rounded hover:bg-gray-300"
+                onClick={clearCart}
+              >
+                Clear Cart
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="w-full max-w-md border rounded-lg p-6 bg-white dark:bg-black shadow-md flex flex-col items-center">
+          <h2 className="text-xl font-bold mb-4">Checkout</h2>
+          <div className="mb-4">Scan to pay with Bitcoin:</div>
+          <div className="bg-white p-4 rounded mb-4">
+            <QRCode value={bitcoinUri} size={180} />
+          </div>
+          <div className="mb-2 text-center break-all">
+            <div className="font-mono text-xs">{BITCOIN_ADDRESS}</div>
+            <div className="font-mono text-xs">Amount: {totalBtc} BTC</div>
+          </div>
+          <button
+            className="mt-4 w-full bg-gray-300 text-black py-2 rounded hover:bg-gray-400"
+            onClick={() => {
+              setShowCheckout(false);
+              clearCart();
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            Back to Store
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
     </div>
   );
 }
