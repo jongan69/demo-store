@@ -31,7 +31,7 @@ const PRODUCTS = [
 ];
 
 // Fixed BTC address for demo
-const BITCOIN_ADDRESS = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh";
+const BITCOIN_ADDRESS = "bc1qmy7yrme4yw5vyypwa64pl85r883jgjps6654e0";
 // Hardcoded BTC/USD rate for demo
 const BTC_USD_RATE = 60000; // 1 BTC = $60,000
 
