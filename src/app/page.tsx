@@ -30,17 +30,32 @@ const PRODUCTS = [
   },
 ];
 
-// Fixed BTC address for demo
-const BITCOIN_ADDRESS = "bc1qmy7yrme4yw5vyypwa64pl85r883jgjps6654e0";
-// Hardcoded BTC/USD rate for demo
-const BTC_USD_RATE = 60000; // 1 BTC = $60,000
+// Hardcoded addresses for demo
+const ADDRESSES = {
+  bitcoin: "bc1qmy7yrme4yw5vyypwa64pl85r883jgjps6654e0",
+  ethereum: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+  solana: "4Nd1mY4Q6Qe6hw2yffA9H9n1t42ZT3zh7Q2F3gF5hF7y",
+};
+// Hardcoded USD rates for demo
+const RATES = {
+  bitcoin: 60000, // 1 BTC = $60,000
+  ethereum: 3000, // 1 ETH = $3,000
+  solana: 150,    // 1 SOL = $150
+};
 
 function usdToBtc(usd: number) {
-  return (usd / BTC_USD_RATE).toFixed(8);
+  return (usd / RATES.bitcoin).toFixed(8);
+}
+function usdToEth(usd: number) {
+  return (usd / RATES.ethereum).toFixed(8);
+}
+function usdToSol(usd: number) {
+  return (usd / RATES.solana).toFixed(8);
 }
 
 export default function Home() {
   const [showCheckout, setShowCheckout] = useState(false);
+  const [chain, setChain] = useState<'bitcoin' | 'ethereum' | 'solana'>('bitcoin');
   const cart = useCartStore((state) => state.cart);
   const addToCart = useCartStore((state) => state.addToCart);
   const removeFromCart = useCartStore((state) => state.removeFromCart);
@@ -55,9 +70,26 @@ export default function Home() {
     (sum, item) => sum + item.priceUsd * item.qty,
     0
   );
-  const totalBtc = usdToBtc(totalUsd);
 
-  const bitcoinUri = `bitcoin:${BITCOIN_ADDRESS}?amount=${totalBtc}`;
+  // Payment details based on chain
+  const address = ADDRESSES[chain];
+  let amount = '';
+  let uri = '';
+  if (chain === 'bitcoin') {
+    amount = usdToBtc(totalUsd);
+    uri = `bitcoin:${address}?amount=${amount}`;
+  } else if (chain === 'ethereum') {
+    // ETH URI: ethereum:<address>?value=<amount_in_wei>
+    // 1 ETH = 1e18 wei
+    const eth = usdToEth(totalUsd);
+    amount = eth;
+    const wei = (parseFloat(eth) * 1e18).toFixed(0);
+    uri = `ethereum:${address}?value=${wei}`;
+  } else if (chain === 'solana') {
+    // SOL URI: solana:<address>?amount=<amount>
+    amount = usdToSol(totalUsd);
+    uri = `solana:${address}?amount=${amount}`;
+  }
 
   return (
     <div className="min-h-screen p-8 sm:p-20 font-[family-name:var(--font-geist-sans)] flex flex-col items-center">
@@ -137,13 +169,25 @@ export default function Home() {
       ) : (
         <div className="w-full max-w-md border rounded-lg p-6 bg-white dark:bg-black shadow-md flex flex-col items-center">
           <h2 className="text-xl font-bold mb-4">Checkout</h2>
-          <div className="mb-4">Scan to pay with Bitcoin:</div>
+          <label className="mb-2 font-medium">Select Blockchain:</label>
+          <select
+            className="mb-4 p-2 border rounded"
+            value={chain}
+            onChange={e => setChain(e.target.value as 'bitcoin' | 'ethereum' | 'solana')}
+          >
+            <option value="bitcoin">Bitcoin</option>
+            <option value="ethereum">Ethereum</option>
+            <option value="solana">Solana</option>
+          </select>
+          <div className="mb-4">Scan to pay with {chain.charAt(0).toUpperCase() + chain.slice(1)}:</div>
           <div className="bg-white p-4 rounded mb-4">
-            <QRCode value={bitcoinUri} size={180} />
+            <QRCode value={uri} size={180} />
           </div>
           <div className="mb-2 text-center break-all">
-            <div className="font-mono text-xs">{BITCOIN_ADDRESS}</div>
-            <div className="font-mono text-xs">Amount: {totalBtc} BTC</div>
+            <div className="font-mono text-xs">{address}</div>
+            <div className="font-mono text-xs">
+              Amount: {amount} {chain === 'bitcoin' ? 'BTC' : chain === 'ethereum' ? 'ETH' : 'SOL'}
+            </div>
           </div>
           <button
             className="mt-4 w-full bg-gray-300 text-black py-2 rounded hover:bg-gray-400"
